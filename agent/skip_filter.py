@@ -10,6 +10,7 @@ Usage from an agent:  echo '<post json>' | python -m agent.skip_filter
 from __future__ import annotations
 
 import json
+import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -37,7 +38,8 @@ def check(post: dict, state: State, rules: Rules, now: datetime) -> Decision:
 
     text = f"{post.get('content') or ''} {author}".lower()
     for kw in sorted(rules.blocked_keywords):
-        if kw in text:
+        # Word boundaries: "election" must not match "natural selection".
+        if re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", text):
             return Decision(False, f"Blocked keyword: {kw}")
 
     try:

@@ -68,3 +68,29 @@ def test_two_posts_same_author_in_one_session(workdir):
     data["summary"]["posts_analyzed"] = 4
     r = run(workdir, data)
     assert r["engage"] == 1 and r["caught_at_finalize"] == 1
+
+
+def test_low_score_is_dropped_in_code(workdir):
+    data = example()
+    data["engage_posts"][0]["score"]["score"] = 5
+    r = run(workdir, data)
+    assert r["engage"] == 0 and r["caught_at_finalize"] == 1
+
+
+def test_failed_bridge_is_dropped_in_code(workdir):
+    data = example()
+    data["engage_posts"][0]["reply"]["reasoning"]["bridge_test"]["decision"] = False
+    assert run(workdir, data)["engage"] == 0
+
+
+def test_failed_publish_does_not_mark_posts_seen(workdir):
+    shutil.copy(EXAMPLE, workdir / "session-output.json")
+
+    def boom(*_):
+        raise RuntimeError("push failed")
+
+    with pytest.raises(RuntimeError):
+        finalize(workdir / "session-output.json", out_root=workdir,
+                 config=workdir / "config.toml", now=NOW, publish=boom)
+    assert State(workdir / "state").seen == {}
+    assert run(workdir)["engage"] == 1  # retry still works

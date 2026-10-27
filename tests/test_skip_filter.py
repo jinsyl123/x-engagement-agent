@@ -62,3 +62,16 @@ def test_author_window_cap(workdir):
     for i, days in enumerate([2, 4, 6]):
         state.record(f"https://x.com/a/status/9{i}", "@a", (NOW - timedelta(days=days)).isoformat())
     assert not check(post(), state, rules, NOW).keep
+
+
+def test_keyword_needs_word_boundary(workdir):
+    state, rules = setup(workdir)
+    assert check(post(content="natural selection in agent evals"), state, rules, NOW).keep
+    assert not check(post(content="the election is wild"), state, rules, NOW).keep
+
+
+def test_config_rejects_memory_shorter_than_freshness():
+    import pytest
+    from agent.config import Rules
+    with pytest.raises(ValueError):
+        Rules(window_days=1, max_post_age_hours=48)

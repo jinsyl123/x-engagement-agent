@@ -5,7 +5,8 @@ max_reply_count = 300         # skip crowded threads
 max_post_age_hours = 48       # skip stale threads
 author_cooldown_days = 1      # no engaging the same author on consecutive days
 max_author_engagements = 3    # per window
-window_days = 7               # window + TTL for seen-post memory
+window_days = 7               # window + TTL for seen-post memory (must cover max_post_age_hours)
+min_score = 7                 # drafts below this are dropped in code
 
 # Obvious noise only. Nuance (is this *really* about our domain?) is the LLM's job.
 [filters.blocked_keywords]

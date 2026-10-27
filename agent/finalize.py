@@ -52,7 +52,7 @@ def check_accounting(session: Session) -> None:
 
 
 def recheck_against_state(session: Session, state: State, max_per_window: int,
-                          window_days: int, now: datetime) -> list[str]:
+                          window_days: int, now: datetime, min_score: int = 0) -> list[str]:
     """Move posts that slipped past the agent's skip step into skipped_posts.
     Returns a note per moved post so the reviewer can see the agent erred."""
     cutoff = now - timedelta(days=window_days)
@@ -62,7 +62,11 @@ def recheck_against_state(session: Session, state: State, max_per_window: int,
         handle = state.handle(post.author)
         prior = sum(dt > cutoff for dt in state.engagements(post.author))
         reason = None
-        if post.link in state.seen:
+        if post.score.score < min_score:
+            reason = f"Score {post.score.score} below {min_score} (caught at finalize)"
+        elif not post.reply.reasoning.bridge_test.decision:
+            reason = "Bridge test failed but post was proposed (caught at finalize)"
+        elif post.link in state.seen:
             reason = "Already seen (caught at finalize)"
         elif prior + batch_counts.get(handle, 0) >= max_per_window:
             reason = "Author over-engaged (caught at finalize)"
@@ -108,7 +112,10 @@ def render_pr_body(session: Session, ts: str, notes: list[str]) -> str:
 
 
 def finalize(session_path: str | Path, out_root: str | Path = ".", config: str = "config.toml",
-             now: datetime | None = None) -> dict:
+             now: datetime | None = None, publish=None) -> dict:
+    """publish: optional callable(output_file, body_file). State is saved only
+    after it succeeds, so a failed push can be retried without the posts
+    being marked as already seen."""
     now = now or datetime.now(timezone.utc)
     ts = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     rules = load_rules(config)
@@ -118,18 +125,22 @@ def finalize(session_path: str | Path, out_root: str | Path = ".", config: str =
 
     session = load_session(session_path)
     check_accounting(session)
-    notes = recheck_against_state(session, state, rules.max_author_engagements, rules.window_days, now)
+    notes = recheck_against_state(session, state, rules.max_author_engagements, rules.window_days, now,
+                                  rules.min_score)
 
     day_dir = out_root / "outputs" / now.strftime("%Y-%m-%d")
     day_dir.mkdir(parents=True, exist_ok=True)
-    stem = now.strftime("%H%M")
+    stem = now.strftime("%H%M%S")
     out_file = day_dir / f"{stem}.json"
     body_file = day_dir / f"{stem}.pr.md"
     out_file.write_text(session.model_dump_json(indent=2), encoding="utf-8")
     body_file.write_text(render_pr_body(session, ts, notes), encoding="utf-8")
 
-    # Record engagements now, not after review: even a rejected reply means a
-    # human looked at that post, and we don't want it proposed again tomorrow.
+    if publish and session.engage_posts:
+        publish(str(out_file), str(body_file))
+
+    # Record engagements at proposal time, not after review: even a rejected
+    # reply means a human looked at that post, and it shouldn't come back.
     for p in session.engage_posts:
         state.record(p.link, p.author, ts)
     state.save()
@@ -145,15 +156,16 @@ def main() -> int:
     ap.add_argument("--config", default="config.toml")
     ap.add_argument("--publish", action="store_true", help="open a PR for review")
     args = ap.parse_args()
+    publish = None
+    if args.publish:
+        from .publish import open_pr
+        publish = open_pr
     try:
-        result = finalize(args.session_file, config=args.config)
+        result = finalize(args.session_file, config=args.config, publish=publish)
     except (SessionError, StateError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2))
-    if args.publish and result["engage"]:
-        from .publish import open_pr
-        open_pr(result["output"], result["pr_body"])
     return 0
 
 

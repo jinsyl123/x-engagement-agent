@@ -1,6 +1,9 @@
 """Open one PR per session. The PR is the review UI: reviewers already live
 in GitHub, comments and edits are tracked, and merge history is an audit
-trail of every reply that went out and who approved it."""
+trail of every reply that went out and who approved it.
+
+State (state/) is deliberately NOT committed: it's operator-local, so an
+unmerged PR can't leave main's memory out of date."""
 from __future__ import annotations
 
 import subprocess
@@ -19,7 +22,7 @@ def open_pr(output_file: str, body_file: str, base: str = "main") -> str:
     original = _run("git", "rev-parse", "--abbrev-ref", "HEAD")
     try:
         _run("git", "checkout", "-b", branch, base)
-        _run("git", "add", output_file, body_file, "state")
+        _run("git", "add", output_file, body_file)
         _run("git", "commit", "-m", f"session: {stem}")
         _run("git", "push", "-u", "origin", branch)
         url = _run("gh", "pr", "create", "--base", base, "--head", branch,

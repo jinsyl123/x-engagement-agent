@@ -20,6 +20,13 @@ class Rules:
     author_cooldown_days: int = 1       # no engaging the same person two days running
     max_author_engagements: int = 3     # ...or more than N times per window
     window_days: int = 7                # also the TTL for seen-post memory
+    min_score: int = 7                  # enforced at finalize, not just asked for in the prompt
+
+    def __post_init__(self):
+        # Seen-memory must outlive the freshness window, or an old post could
+        # age out of memory while still "fresh" and get proposed again.
+        if self.window_days * 24 < self.max_post_age_hours:
+            raise ValueError("window_days must cover max_post_age_hours")
 
 
 def load_rules(path: str | Path) -> Rules:
