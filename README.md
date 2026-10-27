@@ -1,0 +1,77 @@
+# x-engagement-agent
+
+An AI agent that finds developer conversations on X, decides whether it has anything worth adding, drafts a reply, and opens a **GitHub PR** so a human approves every word before it's posted.
+
+> Clean-room rewrite of a system I built and ran in a previous role (900+ sessions in production). Same architecture, rewritten from scratch. No original code, prompts or data are included; product names and keywords are placeholders.
+
+## The problem
+
+Engaging developers on X was manual, inconsistent, and depended on one person. The obvious fix, "let an LLM reply," is how brands end up posting confident nonsense in public. I needed a system where the agent does the legwork and **can't** ship anything that hasn't passed code checks and a human.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Browser agent<br/>fetches posts] --> B[skip_filter.py<br/>deterministic rules]
+    B -->|skip| S[(skipped + reason)]
+    B -->|keep| C[LLM: ground → bridge test<br/>→ score → draft]
+    C --> D[session-output.json]
+    D --> E[finalize.py<br/>schema · accounting · re-check]
+    E -->|any failure| X[run stops]
+    E --> F[GitHub PR<br/>human accept / reject / edit]
+    F --> G[review-sync<br/>PR body → JSON]
+    E --> M[(state: seen posts,<br/>author history)]
+    M --> B
+```
+
+| Step | Who | File |
+|---|---|---|
+| Fetch posts | Agent + browser | [`prompts/fetch-and-triage.md`](prompts/fetch-and-triage.md) |
+| Cheap filter | **Code** | [`agent/skip_filter.py`](agent/skip_filter.py) |
+| Judge + draft | Agent | [`prompts/reply-criteria.md`](prompts/reply-criteria.md) |
+| Validate + dedup + write PR | **Code** | [`agent/finalize.py`](agent/finalize.py), [`agent/schemas.py`](agent/schemas.py) |
+| Approve | Human, in the PR | [`agent/publish.py`](agent/publish.py) |
+| Sync decisions back | Agent | [`prompts/review-sync.md`](prompts/review-sync.md) |
+
+## Design decisions
+
+**1. LLM output is untrusted input.** The agent writes a JSON session file, and nothing downstream reads it until it parses against strict Pydantic models ([`schemas.py`](agent/schemas.py)): score 1–10, reply ≤ 280 chars, required reasoning fields. One malformed post fails the whole run, loudly.
+
+**2. Schemas shape the reasoning, not just the output.** The model must fill `grounding` (what is the author actually saying?) and a `bridge_test` (is there an *honest* connection to what we know?) before `chosen_reply`. When a reply is bad, the reviewer can see which step was skipped instead of guessing from fluent text.
+
+**3. Cheap, deterministic filters first; LLM for nuance only.** Keyword, crowding, freshness and author-cooldown rules run in code before any LLM call. They're fast, free and testable. The LLM only judges what rules can't (is this really about our domain?).
+
+**4. Don't trust the agent to follow its own instructions.** The agent is *told* to run the skip filter on every post. In practice agents sometimes don't. So `finalize.py` re-applies the dedup and author-cap rules in code against on-disk state, moves anything that slipped through to `skipped_posts`, and flags it in the PR so the reviewer sees the agent erred.
+
+**5. Accounting check.** `engaged + skipped` must equal `posts_analyzed`. A mismatch means the agent dropped or invented posts, so the session is rejected rather than half-trusted.
+
+**6. State fails loudly and writes atomically.** A corrupt state file stops the run: silently resetting to empty would make the agent forget its history and re-engage the same people, the most embarrassing failure possible in public. Writes go through tmp-file + `os.replace`, so a crash can't create that corruption in the first place. Memory is pruned on a TTL so it can't grow forever.
+
+**7. A PR is the review UI.** Reviewers already live in GitHub. Inline edits, comments and merge history give an audit trail of every reply and who approved it, with no custom dashboard to build or maintain. After review, the PR body is the source of truth and is synced back into the JSON.
+
+**8. Skip is the default.** A missed reply costs nothing; a bad one costs trust. The bar: *would a senior engineer reading this learn something concrete?*
+
+## Run it
+
+```bash
+pip install -r requirements.txt
+cp config.example.toml config.toml
+
+# filter one post
+echo '{"link":"https://x.com/u/status/1","author":"@u","content":"...","reply_count":4}' \
+  | python -m agent.skip_filter config.toml
+
+# validate + write output and PR body (add --publish to open the PR)
+cp examples/session-output.json .
+python -m agent.finalize session-output.json
+
+python -m pytest -q
+```
+
+The agent side (`prompts/`) runs in any coding agent with a browser tool and shell access. Start from [`prompts/run-session.md`](prompts/run-session.md).
+
+## What I'd do next
+
+- **Close the feedback loop automatically:** cluster reviewer rejections and edits, and propose changes to the criteria prompt and filter config.
+- **Replace JSON files with SQLite** once more than one operator runs sessions concurrently.
+- **Eval set:** a fixed batch of labelled posts to score prompt changes before shipping them, instead of judging by feel.
