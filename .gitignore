@@ -1,6 +1,6 @@
-config.toml
-state/
-session-output.json
+/config.toml
+/state/
+/session-output.json
 .venv/
 __pycache__/
 .pytest_cache/
