@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
-from agent.config import load_rules
-from agent.check_skip import check
-from agent.state import State
+import pytest
+
+from scripts.check_skip import check
+from scripts.config_loader import ConfigError, Rules, load_rules
+from scripts.state import State
 
 NOW = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
 
@@ -14,7 +16,7 @@ def post(**kw):
 
 
 def setup(workdir):
-    return State(workdir / "state"), load_rules(workdir / "config.toml")
+    return State(workdir), load_rules(workdir / "config" / "config.toml")
 
 
 def test_keeps_a_normal_post(workdir):
@@ -31,6 +33,12 @@ def test_blocked_keyword_case_insensitive(workdir):
     state, rules = setup(workdir)
     d = check(post(content="Switched from Competitor-A today"), state, rules, NOW)
     assert not d.keep and "competitor-a" in d.reason
+
+
+def test_keyword_needs_word_boundary(workdir):
+    state, rules = setup(workdir)
+    assert check(post(content="natural selection in agent evals"), state, rules, NOW).keep
+    assert not check(post(content="the election is wild"), state, rules, NOW).keep
 
 
 def test_crowded_and_stale(workdir):
@@ -50,11 +58,11 @@ def test_seen_post(workdir):
     assert not check(post(), state, rules, NOW).keep
 
 
-def test_author_cooldown_and_handle_normalisation(workdir):
+def test_author_today_and_yesterday_with_handle_normalisation(workdir):
     state, rules = setup(workdir)
     state.record("https://x.com/a/status/0", "A", (NOW - timedelta(days=1)).isoformat())
     d = check(post(author="@a"), state, rules, NOW)
-    assert not d.keep and "recently" in d.reason
+    assert not d.keep and "yesterday" in d.reason
 
 
 def test_author_window_cap(workdir):
@@ -64,14 +72,6 @@ def test_author_window_cap(workdir):
     assert not check(post(), state, rules, NOW).keep
 
 
-def test_keyword_needs_word_boundary(workdir):
-    state, rules = setup(workdir)
-    assert check(post(content="natural selection in agent evals"), state, rules, NOW).keep
-    assert not check(post(content="the election is wild"), state, rules, NOW).keep
-
-
 def test_config_rejects_memory_shorter_than_freshness():
-    import pytest
-    from agent.config import Rules
-    with pytest.raises(ValueError):
+    with pytest.raises(ConfigError):
         Rules(window_days=1, max_post_age_hours=48)

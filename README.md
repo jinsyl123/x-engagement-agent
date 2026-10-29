@@ -19,27 +19,31 @@ flowchart LR
     D --> E[output_pr.py<br/>schema · accounting · re-check]
     E -->|any failure| X[run stops]
     E --> F[GitHub PR<br/>human accept / reject / edit]
-    F --> G[review-sync<br/>PR body → JSON]
-    E --> M[(state: seen posts,<br/>author history)]
+    F --> G[review-pr<br/>PR body → JSON]
+    E --> M[(seen_posts.json<br/>engagement_cache.json)]
     M --> B
 ```
 
 | Step | Who | File |
 |---|---|---|
-| Fetch posts | Agent + browser | [`prompts/fetch-and-triage.md`](prompts/fetch-and-triage.md) |
-| Cheap filter | **Code** | [`agent/check_skip.py`](agent/check_skip.py) |
-| Judge + draft | Agent | [`prompts/reply-criteria.md`](prompts/reply-criteria.md) |
-| Validate + dedup + write PR | **Code** | [`agent/output_pr.py`](agent/output_pr.py), [`agent/schemas.py`](agent/schemas.py) |
-| Approve | Human, in the PR | [`agent/publish.py`](agent/publish.py) |
-| Sync decisions back | Agent | [`prompts/review-sync.md`](prompts/review-sync.md) |
+| Orchestrate | Agent | [`.pochi/skills/run-engagement-session`](.pochi/skills/run-engagement-session/SKILL.md) |
+| Fetch posts | Agent + browser | [`.pochi/skills/fetch-engage`](.pochi/skills/fetch-engage/SKILL.md) |
+| Cheap filter | **Code** | [`scripts/check_skip.py`](scripts/check_skip.py) |
+| Judge + draft | Agent | [`.pochi/skills/engage-criteria`](.pochi/skills/engage-criteria/SKILL.md), [`product-info`](.pochi/skills/product-info/SKILL.md) |
+| Validate + dedup + write + open PR | **Code** | [`scripts/output_pr.py`](scripts/output_pr.py) |
+| Memory | **Code** | [`scripts/state.py`](scripts/state.py) |
+| Approve | Human, in the PR | [`.pochi/skills/qa-checklist`](.pochi/skills/qa-checklist/SKILL.md) |
+| Sync decisions back | Agent | [`.pochi/skills/review-pr`](.pochi/skills/review-pr/SKILL.md) |
+
+Same file, skill and JSON field names as the original; only the product-specific content is replaced with placeholders.
 
 ## Design decisions
 
-**1. LLM output is untrusted input.** The agent writes a JSON session file, and nothing downstream reads it until it parses against strict Pydantic models ([`schemas.py`](agent/schemas.py)): score 1–10, reply ≤ 280 chars, required reasoning fields. One malformed post fails the whole run, loudly.
+**1. LLM output is untrusted input.** The agent writes a JSON session file, and nothing downstream reads it until it parses against strict Pydantic models (top of [`output_pr.py`](scripts/output_pr.py)): score 1–10, reply ≤ 280 chars, required reasoning fields. One malformed post fails the whole run, loudly.
 
-**2. Schemas shape the reasoning, not just the output.** The model must fill `grounding` (what is the author actually saying?) and a `bridge_test` (is there an *honest* connection to what we know?) before `chosen_reply`. When a reply is bad, the reviewer can see which step was skipped instead of guessing from fluent text.
+**2. Schemas shape the reasoning, not just the output.** The model must fill `grounding_analysis` (what is the author actually saying?) and a `bridge_test_analysis` (is there an *honest* connection to what we know?) before `chosen_reply`. When a reply is bad, the reviewer can see which step was skipped instead of guessing from fluent text.
 
-**3. Cheap, deterministic filters first; LLM for nuance only.** Keyword, crowding, freshness and author-cooldown rules run in code before any LLM call. They're fast, free and testable. The LLM only judges what rules can't (is this really about our domain?).
+**3. Cheap, deterministic filters first; LLM for nuance only.** Keyword, crowding, freshness and author rules (not today, not yesterday, max 3 per 7 days) run in code before any LLM call. They're fast, free and testable. The LLM only judges what rules can't (is this really about our domain?).
 
 **4. Don't trust the agent to follow its own instructions.** The agent is *told* to run the skip filter on every post. In practice agents sometimes don't. So `output_pr.py` re-applies the dedup and author-cap rules in code against on-disk state, moves anything that slipped through to `skipped_posts`, and flags it in the PR so the reviewer sees the agent erred.
 
@@ -72,26 +76,27 @@ The original ran for about 10 months (900+ review sessions, each a PR approved b
 - Memory files were written in place. → Written to a temp file, then swapped in atomically.
 - Score and "bridge test" were only asked for in the prompt. → Enforced in code.
 - A cap of 5 per session later became a quota of exactly 5, which pressured the agent into weak picks. → A cap only.
-- **Still open, here too:** review decisions are synced back by an agent, not parsed by code; the early and final checks don't share one rules function; post text still reaches the filter through a shell `echo` in the prompt docs.
+- **Still open, here too:** review decisions are synced back by an agent, not parsed by code; the early and final checks don't share one rules function (`output_pr` doesn't repeat the today/yesterday author rule); post text still reaches the filter through a shell `echo` in the skill instructions.
 
 ## Run it
 
 ```bash
-pip install -r requirements.txt
-cp config.example.toml config.toml
+cp config/config.template.toml config/config.toml
 
-# filter one post
+# filter one post (run.sh creates .venv and installs requirements on first run)
 echo '{"link":"https://x.com/u/status/1","author":"@u","content":"...","reply_count":4}' \
-  | python -m agent.check_skip config.toml
+  | ./run.sh -m scripts.check_skip
 
-# validate + write output and PR body (add --publish to open the PR)
+# validate + write outputs/, logs/ and the PR body (add --finalize to open the PR)
 cp examples/session-output.json .
-python -m agent.output_pr session-output.json
+./run.sh -m scripts.output_pr --session-data-file session-output.json
 
-python -m pytest -q
+./run.sh -m pytest -q
 ```
 
-The agent side (`prompts/`) runs in any coding agent with a browser tool and shell access. Start from [`prompts/run-session.md`](prompts/run-session.md).
+Note: a dry run (without `--finalize`) still records the proposals in `seen_posts.json`, so running the example twice shows cross-session dedup.
+
+The agent side runs in [Pochi](https://github.com/TabbyML/pochi) (or any coding agent with a browser tool and shell access). Start from [`.pochi/skills/run-engagement-session`](.pochi/skills/run-engagement-session/SKILL.md).
 
 ## What I'd do next
 

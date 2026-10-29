@@ -1,36 +1,36 @@
 {
-  "summary": {"posts_analyzed": 3},
+  "summary": {"posts_analyzed": 3, "engage_posts_count": 1},
   "engage_posts": [
     {
       "link": "https://x.com/example_dev/status/1000000000000000001",
       "author": "@example_dev",
-      "excerpt": "Our agent keeps re-running the same tool call in a loop when the API returns a 429. Any patterns for this?",
-      "prior_engagements": 0,
-      "score": {"score": 8, "reasoning": "Concrete reliability problem we've solved; the author is asking for patterns."},
-      "grounding": {
+      "post_content_excerpt": "Our agent keeps re-running the same tool call in a loop when the API returns a 429. Any patterns for this?",
+      "skip_check": {"engagements": 0},
+      "analysis": {"score": 8, "reasoning": "Concrete reliability problem we've solved; the author is asking for patterns."},
+      "grounding_analysis": {
         "post_gist": "Agent retries a rate-limited tool call forever",
         "author_intent": "Asking for practical patterns",
         "core_concepts": ["rate limiting", "agent loops", "retries"]
       },
-      "reply": {
-        "reasoning": {
+      "reply_generation": {
+        "internal_monologue": {
           "assessed_topic": "Agent reliability",
           "social_intent": "Help request",
-          "bridge_test": {"connection_point": "We hit the same loop and fixed it with a retry budget", "strength": "strong", "decision": true},
-          "angles": [
+          "bridge_test_analysis": {"connection_point": "We hit the same loop and fixed it with a retry budget", "bridge_strength": "strong", "decision": true},
+          "brainstormed_angles": [
             {"strategy": "share a pattern", "summary": "Return the 429 to the model as a structured error plus a retry budget"},
             {"strategy": "share a pitfall", "summary": "Agents treat raw error text as a prompt to try again"}
           ]
         },
         "chosen_reply": "What fixed it for us: don't hand the model the raw 429. Return a structured error with retry_after and a remaining-attempts count, and enforce the budget in code, not the prompt. Once it hits 0, the tool returns a hard 'give up' and the loop ends.",
-        "why_this_reply": "Specific, actionable, no pitch needed.",
+        "reasoning": "Specific, actionable, no pitch needed.",
         "alternatives": [{"reply": "Agents read raw error text as 'try again'. Wrap tool errors in a schema with a give-up signal.", "strategy": "share a pitfall"}],
-        "brand_mention": {"mentions_product": false, "reasoning": "The pattern answers the question on its own; a mention would read as an ad."}
+        "brand_mention_analysis": {"mention_product": false, "reasoning": "The pattern answers the question on its own; a mention would read as an ad."}
       }
     }
   ],
   "skipped_posts": [
-    {"link": "https://x.com/someone/status/1000000000000000002", "author": "@someone", "reason": "Crowded thread: 812 replies"},
+    {"link": "https://x.com/someone/status/1000000000000000002", "author": "@someone", "reason": "High competition: 812 replies"},
     {"link": "https://x.com/another/status/1000000000000000003", "author": "@another", "reason": "Bridge test failed: no honest connection"}
   ]
 }

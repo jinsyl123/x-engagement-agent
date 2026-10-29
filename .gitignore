@@ -1,6 +1,8 @@
-/config.toml
-/state/
+/config/config.toml
+/seen_posts.json
+/engagement_cache.json
 /session-output.json
+*.tmp
 .venv/
 __pycache__/
 .pytest_cache/

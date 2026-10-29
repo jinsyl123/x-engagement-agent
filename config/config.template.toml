@@ -1,0 +1,21 @@
+# Copy this file to config/config.toml and fill in your values.
+# config.toml is ignored by Git. Everything product-specific lives here.
+
+[github]
+repo_owner = "your-org"
+repo_name = "your-engagement-repo"
+# (Optional) request a review from this GitHub username on every session PR.
+# pr_reviewer = "your-teammate"
+
+[filters]
+max_reply_count = 300         # skip crowded threads
+max_post_age_hours = 48       # skip stale threads
+max_author_engagements = 3    # per window
+window_days = 7               # window + TTL for seen-post memory (must cover max_post_age_hours)
+min_score = 7                 # drafts below this are dropped in code
+
+# Obvious noise only. Nuance (is this *really* about our domain?) is the LLM's job.
+[filters.blocked_keywords]
+competitors  = ["competitor-a", "competitor-b"]   # don't hijack a rival's thread
+off_topic    = ["super bowl", "election"]
+out_of_scope = ["built-in feature x"]             # things our product doesn't do
