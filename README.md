@@ -2,7 +2,7 @@
 
 An AI agent that finds developer conversations on X, decides whether it has anything worth adding, drafts a reply, and opens a **GitHub PR** so a human approves every word before it's posted.
 
-> Clean-room rewrite of a system I built and ran in a previous role (900+ review sessions over about 10 months of internal use). Same architecture, rewritten from scratch. No original code, prompts or data are included; product names and keywords are placeholders.
+> Public rewrite of a system I built and ran in a previous role (900+ review sessions over about 10 months of internal use). Same architecture, file names and data format; the code and prompts are rewritten, with fixes for gaps the original had. No company data, prompts or internal playbook are included; product names and keywords are placeholders.
 
 ## The problem
 

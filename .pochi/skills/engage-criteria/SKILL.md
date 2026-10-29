@@ -1,6 +1,6 @@
 ---
 name: engage-criteria
-description: Reference for engagement rules and scoring.
+description: How to decide whether to reply, how to score a post, and how to draft the reply.
 ---
 # Engagement criteria
 

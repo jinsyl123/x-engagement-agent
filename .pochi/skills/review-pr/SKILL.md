@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Synchronize session analysis JSON with PR body decisions.
+description: After human review, copy the accept/reject/edit decisions from the PR body back into the session files.
 ---
 # Sync review decisions back from a PR
 
