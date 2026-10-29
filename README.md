@@ -51,6 +51,29 @@ flowchart LR
 
 **8. Skip is the default.** A missed reply costs nothing; a bad one costs trust. The bar: *would a senior engineer reading this learn something concrete?*
 
+## How the original evolved
+
+The original ran for about 10 months (900+ review sessions, each a PR approved by a teammate). This rewrite is what that history taught me. The pattern: **I started by trusting the agent to run everything, and almost every major change after that moved a responsibility out of the prompt and into code.**
+
+| Phase | What I tried | What broke | What changed |
+|---|---|---|---|
+| **1. Prompt only** | Engagement criteria and scoring written as agent instructions; the agent ran the whole session | Inconsistent output formats; the agent said a post was recorded in the duplicate list when it wasn't | Moved recording into a script |
+| **2. Shell scripts** | A bash filter script the agent called per post | Untrusted post text passed through the shell; quoting and concurrency bugs; macOS/Linux differences | Rewrote the automation in Python |
+| **3. State in git** | Memory files committed alongside session outputs | Merge conflicts between parallel session branches | Memory became local to the operator |
+| **4. Checks that wrote** | The filter also updated memory | Posts that were only *looked at* got treated as engaged | Checks became read-only; memory updates once, at the end |
+| **5. Validation** | Trusting the agent's JSON | Missing or wrongly typed fields reached review | Schema validation and a count check before any PR |
+| **6. Quality from review** | More posts per session | Weak replies | A per-session cap, a "bridge test" for an honest connection, reasoning-first scoring, criteria tightened from reviewer edits |
+| **7. Hand-off** | Only I could run it | — | Config-driven rules and an operator runbook |
+
+**Experiments I rolled back:** extra context retrieval made sessions less reliable. I disabled it and brought it back only as optional and fail-safe.
+
+**Gaps that survived into the original** (and what this rewrite does about them):
+- The early filter treated a corrupt memory file as empty. → Fails loudly in both places.
+- Memory files were written in place. → Written to a temp file, then swapped in atomically.
+- Score and "bridge test" were only asked for in the prompt. → Enforced in code.
+- A cap of 5 per session later became a quota of exactly 5, which pressured the agent into weak picks. → A cap only.
+- **Still open, here too:** review decisions are synced back by an agent, not parsed by code; the early and final checks don't share one rules function; post text still reaches the filter through a shell `echo` in the prompt docs.
+
 ## Run it
 
 ```bash
