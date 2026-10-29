@@ -5,7 +5,7 @@ the obvious cases (blocked topics, crowded or stale threads, authors we've
 engaged recently). Anything nuanced is left to the LLM, which is slower,
 costs money, and is non-deterministic.
 
-Usage from an agent:  echo '<post json>' | python -m agent.skip_filter
+Usage from an agent:  echo '<post json>' | python -m agent.check_skip
 """
 from __future__ import annotations
 

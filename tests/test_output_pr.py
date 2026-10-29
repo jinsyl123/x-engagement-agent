@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from agent.finalize import SessionError, finalize
+from agent.output_pr import SessionError, finalize
 from agent.state import State
 
 EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "session-output.json"
@@ -56,7 +56,7 @@ def test_reply_over_280_chars_fails(workdir):
 
 def test_second_run_catches_post_the_agent_should_have_skipped(workdir):
     run(workdir)
-    r = run(workdir)  # agent "forgot" to run skip_filter and re-proposed the same post
+    r = run(workdir)  # agent "forgot" to run check_skip and re-proposed the same post
     assert r["engage"] == 0 and r["caught_at_finalize"] == 1
 
 

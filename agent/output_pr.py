@@ -4,12 +4,12 @@ Order matters:
   1. Schema: every post must parse (see schemas.py). One bad post fails the run.
   2. Accounting: engaged + skipped must equal posts_analyzed. A mismatch means
      the agent dropped or invented posts, so nothing it wrote can be trusted.
-  3. Re-check against state: the agent was *told* to run skip_filter on every
+  3. Re-check against state: the agent was *told* to run check_skip on every
      post, but agents don't always follow instructions. Re-apply the
      dedup/author rules here, in code, against the state on disk.
   4. Write output + update state + render the PR body for human review.
 
-Usage: python -m agent.finalize session-output.json [--publish]
+Usage: python -m agent.output_pr session-output.json [--publish]
 """
 from __future__ import annotations
 

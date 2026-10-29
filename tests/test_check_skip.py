@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from agent.config import load_rules
-from agent.skip_filter import check
+from agent.check_skip import check
 from agent.state import State
 
 NOW = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)

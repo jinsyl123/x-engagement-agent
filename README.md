@@ -12,11 +12,11 @@ Engaging developers on X was manual, inconsistent, and depended on one person. T
 
 ```mermaid
 flowchart LR
-    A[Browser agent<br/>fetches posts] --> B[skip_filter.py<br/>deterministic rules]
+    A[Browser agent<br/>fetches posts] --> B[check_skip.py<br/>deterministic rules]
     B -->|skip| S[(skipped + reason)]
     B -->|keep| C[LLM: ground → bridge test<br/>→ score → draft]
     C --> D[session-output.json]
-    D --> E[finalize.py<br/>schema · accounting · re-check]
+    D --> E[output_pr.py<br/>schema · accounting · re-check]
     E -->|any failure| X[run stops]
     E --> F[GitHub PR<br/>human accept / reject / edit]
     F --> G[review-sync<br/>PR body → JSON]
@@ -27,9 +27,9 @@ flowchart LR
 | Step | Who | File |
 |---|---|---|
 | Fetch posts | Agent + browser | [`prompts/fetch-and-triage.md`](prompts/fetch-and-triage.md) |
-| Cheap filter | **Code** | [`agent/skip_filter.py`](agent/skip_filter.py) |
+| Cheap filter | **Code** | [`agent/check_skip.py`](agent/check_skip.py) |
 | Judge + draft | Agent | [`prompts/reply-criteria.md`](prompts/reply-criteria.md) |
-| Validate + dedup + write PR | **Code** | [`agent/finalize.py`](agent/finalize.py), [`agent/schemas.py`](agent/schemas.py) |
+| Validate + dedup + write PR | **Code** | [`agent/output_pr.py`](agent/output_pr.py), [`agent/schemas.py`](agent/schemas.py) |
 | Approve | Human, in the PR | [`agent/publish.py`](agent/publish.py) |
 | Sync decisions back | Agent | [`prompts/review-sync.md`](prompts/review-sync.md) |
 
@@ -41,7 +41,7 @@ flowchart LR
 
 **3. Cheap, deterministic filters first; LLM for nuance only.** Keyword, crowding, freshness and author-cooldown rules run in code before any LLM call. They're fast, free and testable. The LLM only judges what rules can't (is this really about our domain?).
 
-**4. Don't trust the agent to follow its own instructions.** The agent is *told* to run the skip filter on every post. In practice agents sometimes don't. So `finalize.py` re-applies the dedup and author-cap rules in code against on-disk state, moves anything that slipped through to `skipped_posts`, and flags it in the PR so the reviewer sees the agent erred.
+**4. Don't trust the agent to follow its own instructions.** The agent is *told* to run the skip filter on every post. In practice agents sometimes don't. So `output_pr.py` re-applies the dedup and author-cap rules in code against on-disk state, moves anything that slipped through to `skipped_posts`, and flags it in the PR so the reviewer sees the agent erred.
 
 **5. Accounting check.** `engaged + skipped` must equal `posts_analyzed`. A mismatch means the agent dropped or invented posts, so the session is rejected rather than half-trusted.
 
@@ -82,11 +82,11 @@ cp config.example.toml config.toml
 
 # filter one post
 echo '{"link":"https://x.com/u/status/1","author":"@u","content":"...","reply_count":4}' \
-  | python -m agent.skip_filter config.toml
+  | python -m agent.check_skip config.toml
 
 # validate + write output and PR body (add --publish to open the PR)
 cp examples/session-output.json .
-python -m agent.finalize session-output.json
+python -m agent.output_pr session-output.json
 
 python -m pytest -q
 ```
