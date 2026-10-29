@@ -26,14 +26,14 @@ flowchart LR
 
 | Step | Who | File |
 |---|---|---|
-| Orchestrate | Agent | [`.pochi/skills/run-engagement-session`](.pochi/skills/run-engagement-session/SKILL.md) |
-| Fetch posts | Agent + browser | [`.pochi/skills/fetch-engage`](.pochi/skills/fetch-engage/SKILL.md) |
+| Orchestrate | Agent | [`skills/run-engagement-session`](skills/run-engagement-session/SKILL.md) |
+| Fetch posts | Agent + browser | [`skills/fetch-engage`](skills/fetch-engage/SKILL.md) |
 | Cheap filter | **Code** | [`scripts/check_skip.py`](scripts/check_skip.py) |
-| Judge + draft | Agent | [`.pochi/skills/engage-criteria`](.pochi/skills/engage-criteria/SKILL.md), [`product-info`](.pochi/skills/product-info/SKILL.md) |
+| Judge + draft | Agent | [`skills/engage-criteria`](skills/engage-criteria/SKILL.md), [`product-info`](skills/product-info/SKILL.md) |
 | Validate + dedup + write + open PR | **Code** | [`scripts/output_pr.py`](scripts/output_pr.py) |
 | Memory | **Code** | [`scripts/state.py`](scripts/state.py) |
-| Approve | Human, in the PR | [`.pochi/skills/qa-checklist`](.pochi/skills/qa-checklist/SKILL.md) |
-| Sync decisions back | Agent | [`.pochi/skills/review-pr`](.pochi/skills/review-pr/SKILL.md) |
+| Approve | Human, in the PR | [`skills/qa-checklist`](skills/qa-checklist/SKILL.md) |
+| Sync decisions back | Agent | [`skills/review-pr`](skills/review-pr/SKILL.md) |
 
 Same file, skill and JSON field names as the original; only the product-specific content is replaced with placeholders.
 
@@ -96,7 +96,7 @@ cp examples/session-output.json .
 
 Note: a dry run (without `--finalize`) still records the proposals in `seen_posts.json`, so running the example twice shows cross-session dedup.
 
-The agent side runs in [Pochi](https://github.com/TabbyML/pochi) (or any coding agent with a browser tool and shell access). Start from [`.pochi/skills/run-engagement-session`](.pochi/skills/run-engagement-session/SKILL.md).
+The agent side runs in any coding agent that supports skills, a browser tool and shell access. Start from [`skills/run-engagement-session`](skills/run-engagement-session/SKILL.md).
 
 ## What I'd do next
 
